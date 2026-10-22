@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>雲端行事曆 - 分類與即時通知</title>
+  <title>雲端行事曆</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
@@ -22,7 +22,7 @@
         </div>
         <div>
           <h1 class="text-2xl font-bold text-slate-800">雲端行事曆</h1>
-          <p class="text-xs text-slate-500">支援時間、分類與桌面通知</p>
+          <p class="text-xs text-slate-500">分類與即時通知版</p>
         </div>
       </div>
 
@@ -53,8 +53,10 @@
       </div>
     </header>
 
-    <!-- 訊息提示 -->
-    <div id="alert-box" class="hidden mb-4 p-3 rounded-lg text-sm font-medium"></div>
+    <!-- 訊息提示 (預設顯示狀態) -->
+    <div id="alert-box" class="mb-4 p-3 rounded-lg text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">
+      系統就緒，請輸入帳號密碼進行登入或註冊。
+    </div>
 
     <!-- 主內容區 -->
     <main id="app-main" class="hidden space-y-6">
@@ -163,11 +165,10 @@
     function showAlert(msg, isError = false) {
       const box = document.getElementById('alert-box');
       box.innerText = msg;
-      box.className = `mb-4 p-3 rounded-lg text-sm font-medium ${isError ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-800'}`;
+      box.className = `mb-4 p-3 rounded-lg text-sm font-medium ${isError ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}`;
       box.classList.remove('hidden');
     }
 
-    // 請求瀏覽器通知權限
     function requestNotificationPermission() {
       if (!("Notification" in window)) {
         alert("您的瀏覽器不支援通知功能。");
@@ -175,39 +176,29 @@
       }
       Notification.requestPermission().then(permission => {
         if (permission === "granted") {
-          showAlert("通知功能已開啟！當行程時間到達時將發送提示。");
+          showAlert("通知功能已開啟！");
           document.getElementById('btn-notify').innerHTML = `<i class="fa-solid fa-bell text-emerald-600"></i> 通知已開啟`;
         } else {
-          showAlert("您拒絕了通知權限，將無法收到提醒。", true);
+          showAlert("您拒絕了通知權限。", true);
         }
       });
     }
 
-    // 檢查並發送通知
     function checkAndSendNotifications() {
       if (!currentUser || !("Notification" in window) || Notification.permission !== "granted") return;
-
       const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const currentTimeStr = `${hours}:${minutes}`;
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
       Object.values(userEvents).forEach(ev => {
         if (ev.date === todayStr && ev.time === currentTimeStr && !notifiedEventIds.has(ev.id)) {
           notifiedEventIds.add(ev.id);
           const cat = categoryStyles[ev.category] || categoryStyles.work;
-          new Notification(`行事曆提醒：${ev.title}`, {
-            body: `【${cat.name}】時間到了：${ev.time}`
-          });
+          new Notification(`行事曆提醒：${ev.title}`, { body: `【${cat.name}】時間到了：${ev.time}` });
         }
       });
     }
 
-    // 每 20 秒檢查一次通知
     setInterval(checkAndSendNotifications, 20000);
 
     auth.onAuthStateChanged((user) => {
@@ -237,7 +228,11 @@
     function handleRegister() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      if (!email || !password) return showAlert('請輸入電子郵件與密碼', true);
+      if (!email || !password) {
+        showAlert('請輸入電子郵件與密碼！', true);
+        return;
+      }
+      showAlert('正在送出註冊請求...');
       auth.createUserWithEmailAndPassword(email, password)
         .then(() => showAlert('註冊成功並已登入！'))
         .catch((err) => showAlert('註冊失敗：' + err.message, true));
@@ -246,15 +241,19 @@
     function handleLogin() {
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      if (!email || !password) return showAlert('請輸入電子郵件與密碼', true);
+      if (!email || !password) {
+        showAlert('請輸入電子郵件與密碼！', true);
+        return;
+      }
+      showAlert('正在送出登入請求...');
       auth.signInWithEmailAndPassword(email, password)
         .then(() => showAlert('登入成功！'))
-        .catch((err) => showAlert('登入失敗：帳號或密碼錯誤', true));
+        .catch((err) => showAlert('登入失敗：' + err.message, true));
     }
 
     function handleLogout() {
       auth.signOut();
-      showAlert('已登出');
+      showAlert('已安全登出');
     }
 
     function addEvent() {
@@ -264,7 +263,10 @@
       const title = document.getElementById('event-title').value.trim();
       const category = document.getElementById('event-category').value;
 
-      if (!date || !title) return showAlert('請填寫日期與標題', true);
+      if (!date || !title) {
+        showAlert('請填寫日期與標題！', true);
+        return;
+      }
 
       const id = Date.now().toString();
       db.ref(`events/${currentUser.uid}/${id}`).set({ id, date, time, title, category })
@@ -311,7 +313,6 @@
           events = events.filter(e => e.category === currentCategoryFilter);
         }
 
-        // 依照時間排序當日行程
         events.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
         grid.innerHTML += `
