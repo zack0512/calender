@@ -305,7 +305,7 @@
             <div class="space-y-1 overflow-y-auto flex-1 mt-1 pr-0.5">
               ${events.map(e => {
                 const cat = categoryStyles[e.category] || categoryStyles.work;
-                return `<div class="text-[10px] ${cat.bg}${cat.text} rounded px-1 py-0.5 truncate font-medium">🕒${e.time \vert{}\vert{} ''}${e.title}</div>`;
+                return `<div class="text-[10px] ${cat.bg} ${cat.text} rounded px-1 py-0.5 truncate font-medium">🕒${e.time || ''} ${e.title}</div>`;
               }).join('')}
             </div>
           </div>
