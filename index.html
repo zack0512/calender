@@ -29,7 +29,10 @@
       <!-- 登入表單區 -->
       <div id="logged-out-box" class="w-full md:w-auto">
         <div class="flex flex-col sm:flex-row gap-2 items-center">
-          <input type="email" id="email-input" placeholder="電子郵件" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div class="w-full sm:w-auto flex flex-col">
+            <input type="email" id="email-input" placeholder="電子郵件" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-full sm:w-40 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="button" id="btn-forgot-password" class="text-[11px] text-blue-600 hover:underline text-left mt-0.5">忘記密碼？</button>
+          </div>
           <input type="password" id="password-input" placeholder="密碼(至少6碼)" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-full sm:w-36 focus:outline-none focus:ring-2 focus:ring-blue-500">
           <div class="flex gap-2 w-full sm:w-auto">
             <button type="button" id="btn-login" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition flex-1 sm:flex-none">登入</button>
@@ -208,6 +211,22 @@
       auth.createUserWithEmailAndPassword(email, password)
         .then(() => showAlert('註冊成功並已登入！'))
         .catch((err) => showAlert('註冊失敗：' + err.message, true));
+    });
+
+    // 忘記密碼按鈕
+    document.getElementById('btn-forgot-password').addEventListener('click', () => {
+      const email = document.getElementById('email-input').value.trim();
+      if (!email) {
+        return showAlert('請先在電子郵件欄位輸入您的信箱，再點擊「忘記密碼？」！', true);
+      }
+      showAlert('正在發送密碼重設信件...');
+      auth.sendPasswordResetEmail(email)
+        .then(() => {
+          showAlert('密碼重設信件已發送，請至您的電子郵件信箱（含垃圾郵件匣）查看重設連結！');
+        })
+        .catch((err) => {
+          showAlert('發送失敗：' + err.message, true);
+        });
     });
 
     // 登出按鈕
