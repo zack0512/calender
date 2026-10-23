@@ -91,9 +91,9 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- 新增行程 -->
+        <!-- 新增與修改行程表單 -->
         <div class="bg-white rounded-xl shadow-md p-5 md:col-span-1">
-          <h3 class="text-lg font-bold mb-4 text-slate-800"><i class="fa-solid fa-plus-circle text-blue-600"></i> 新增行程</h3>
+          <h3 id="form-title" class="text-lg font-bold mb-4 text-slate-800"><i class="fa-solid fa-plus-circle text-blue-600"></i> 新增行程</h3>
           <div class="space-y-3">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1">日期</label>
@@ -116,13 +116,17 @@
                 <option value="leisure">☕ 休閒</option>
               </select>
             </div>
-            <button id="btn-add-event" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm">新增至雲端</button>
+            
+            <div class="flex gap-2">
+              <button id="btn-add-event" type="button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm">新增至雲端</button>
+              <button id="btn-cancel-edit" type="button" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium px-3 py-2 rounded-lg text-sm transition">取消</button>
+            </div>
           </div>
         </div>
 
         <!-- 行程列表 -->
         <div class="bg-white rounded-xl shadow-md p-5 md:col-span-2">
-          <h3 class="text-lg font-bold mb-4 text-slate-800"><i class="fa-solid fa-list-check text-blue-600"></i> 行程列表</h3>
+          <h3 class="text-lg font-bold mb-4 text-slate-800"><i class="fa-solid fa-list-check text-blue-600"></i> 行程列表 <span class="text-xs font-normal text-slate-400">(點擊項目可進行修改)</span></h3>
           <div id="event-list" class="space-y-2 max-h-96 overflow-y-auto pr-1"></div>
         </div>
       </div>
@@ -157,6 +161,7 @@
     let currentDate = new Date();
     let currentCategoryFilter = 'all';
     let notifiedEventIds = new Set();
+    let editingEventId = null; // 追蹤目前正在編輯的行程 ID
 
     const categoryStyles = {
       work: { name: '工作', bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-500' },
@@ -222,7 +227,7 @@
       showAlert('正在發送密碼重設信件...');
       auth.sendPasswordResetEmail(email)
         .then(() => {
-          showAlert('密碼重設信件已發送，請至您的電子郵件信箱（含垃圾郵件匣）查看重設連結！');
+          showAlert('密碼重設信件已發送，請至您的電子郵件信箱查看！');
         })
         .catch((err) => {
           showAlert('發送失敗：' + err.message, true);
@@ -232,10 +237,11 @@
     // 登出按鈕
     document.getElementById('btn-logout').addEventListener('click', () => {
       auth.signOut();
+      resetForm();
       showAlert('已安全登出');
     });
 
-    // 新增行程
+    // 新增或更新行程按鈕
     document.getElementById('btn-add-event').addEventListener('click', () => {
       if (!currentUser) return;
       const date = document.getElementById('event-date').value;
@@ -244,14 +250,51 @@
       const category = document.getElementById('event-category').value;
       if (!date || !title) return showAlert('請填寫日期與標題！', true);
 
-      const id = Date.now().toString();
+      // 如果有 editingEventId 代表是修改，否則是新增
+      const id = editingEventId ? editingEventId : Date.now().toString();
+
       db.ref(`events/${currentUser.uid}/${id}`).set({ id, date, time, title, category })
         .then(() => {
-          showAlert('行程已儲存至雲端！');
-          document.getElementById('event-title').value = '';
+          showAlert(editingEventId ? '行程已成功更新！' : '行程已儲存至雲端！');
+          resetForm();
         })
         .catch((err) => showAlert('儲存失敗：' + err.message, true));
     });
+
+    // 取消編輯按鈕
+    document.getElementById('btn-cancel-edit').addEventListener('click', () => {
+      resetForm();
+      showAlert('已取消編輯');
+    });
+
+    function resetForm() {
+      editingEventId = null;
+      document.getElementById('event-title').value = '';
+      document.getElementById('event-time').value = '09:00';
+      document.getElementById('event-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-plus-circle text-blue-600"></i> 新增行程`;
+      document.getElementById('btn-add-event').innerText = '新增至雲端';
+      document.getElementById('btn-cancel-edit').classList.add('hidden');
+    }
+
+    // 點擊載入行程資料到表單以進行修改
+    window.startEditEvent = function(id) {
+      const ev = userEvents[id];
+      if (!ev) return;
+      editingEventId = id;
+      document.getElementById('event-date').value = ev.date;
+      document.getElementById('event-time').value = ev.time || '09:00';
+      document.getElementById('event-title').value = ev.title;
+      document.getElementById('event-category').value = ev.category;
+
+      document.getElementById('form-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-600"></i> 修改行程`;
+      document.getElementById('btn-add-event').innerText = '確認修改';
+      document.getElementById('btn-cancel-edit').classList.remove('hidden');
+      
+      // 自動捲動到表單區（在手機版特別實用）
+      window.scrollTo({ top: 400, behavior: 'smooth' });
+      showAlert(`正在編輯行程：「${ev.title}」`);
+    };
 
     // 通知按鈕
     document.getElementById('btn-notify').addEventListener('click', () => {
@@ -324,7 +367,7 @@
             <div class="space-y-1 overflow-y-auto flex-1 mt-1 pr-0.5">
               ${events.map(e => {
                 const cat = categoryStyles[e.category] || categoryStyles.work;
-                return `<div class="text-[10px] ${cat.bg} ${cat.text} rounded px-1 py-0.5 truncate font-medium">🕒${e.time || ''} ${e.title}</div>`;
+                return `<div onclick="event.stopPropagation(); startEditEvent('${e.id}')" class="text-[10px] ${cat.bg} ${cat.text} rounded px-1 py-0.5 truncate font-medium hover:opacity-80" title="點擊修改">🕒${e.time || ''} ${e.title}</div>`;
               }).join('')}
             </div>
           </div>
@@ -348,7 +391,7 @@
       list.innerHTML = arr.map(e => {
         const cat = categoryStyles[e.category] || categoryStyles.work;
         return `
-          <div class="p-3 bg-slate-50 border-l-4 ${cat.border} rounded-r-lg flex justify-between items-center hover:bg-slate-100 transition">
+          <div onclick="startEditEvent('${e.id}')" class="p-3 bg-slate-50 border-l-4 ${cat.border} rounded-r-lg flex justify-between items-center hover:bg-slate-100 cursor-pointer transition">
             <div class="space-y-0.5">
               <div class="flex items-center gap-2">
                 <span class="text-xs font-bold ${cat.bg} ${cat.text} px-1.5 py-0.5 rounded">${cat.name}</span>
@@ -356,7 +399,7 @@
               </div>
               <span class="text-xs text-slate-500 block"><i class="fa-regular fa-clock"></i> ${e.date} ${e.time ? 'at ' + e.time : ''}</span>
             </div>
-            <button onclick="deleteEvent('${e.id}')" class="text-slate-400 hover:text-red-500 p-1.5"><i class="fa-solid fa-trash-can"></i></button>
+            <button onclick="event.stopPropagation(); deleteEvent('${e.id}')" class="text-slate-400 hover:text-red-500 p-1.5" title="刪除行程"><i class="fa-solid fa-trash-can"></i></button>
           </div>
         `;
       }).join('');
@@ -384,7 +427,12 @@
 
     window.deleteEvent = function(id) {
       if (!currentUser) return;
-      db.ref(`events/${currentUser.uid}/${id}`).remove().then(() => showAlert('已刪除行程'));
+      if (confirm('確定要刪除這個行程嗎？')) {
+        db.ref(`events/${currentUser.uid}/${id}`).remove().then(() => {
+          showAlert('已刪除行程');
+          if (editingEventId === id) resetForm();
+        });
+      }
     };
 
     document.getElementById('event-date').value = new Date().toISOString().split('T')[0];
